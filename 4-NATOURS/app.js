@@ -9,12 +9,11 @@ const userRouter = require('./routes/userRoutes');
 const app = express();
 
 /**********  1) MIDDLEWARES  ***********/
-app.use(morgan('dev'));
-app.use(express.json());
-
-
-
 // Create a Middleware: middleware is basically a function that can modify the incoming request data
+
+app.use(morgan('dev'));
+
+app.use(express.json());
 
 app.use((req, res, next)=>{
     console.log('Hello from the middleware');
@@ -26,18 +25,12 @@ app.use((req, res, next) =>{
     next();
 })
 
-
 // 3) ROUTE
 
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 
-//4) START THE SERVER
-const port = 3000;
-app.listen(port, () => {
-    console.log(`App running on port ${port}...`);
-});
-
+module.exports = app;
 
 
     
