@@ -1,91 +1,140 @@
-const fs = require('fs');
 
-const tours = JSON.parse(
-    fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`)
-);
+const Tour = require('./../models/tourModels');
+
+
+
 
 /************************************* HTTP method: GET All Tour***********************************/
 //When someone hit this route /api/v1/tours we send back to the client, the json file
-exports.getAllTours = (req, res) =>{
-    console.log(req.requestTime);
-    res.status(200).json({
-       status: 'success', 
-       requestedAt: req.requestTime,
-       results: tours.length,  
-       data:{
-           tours
+exports.getAllTours =  async(req, res) =>{
+    try{
+        //BUILD QUERY
+        //1) Filtering
+        const queryObj = {...req.query };
+        const excludedFields = ['page', 'sort', 'limit', 'fields'];
+        excludedFields.forEach(el => delete queryObj[el]);
+
+
+        //2)Advanced filtering
+        let queryStr = JSON.stringify(queryObj);
+        queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+
+       let query = Tour.find(JSON.parse(queryStr));
+
+       
+       //3) Sorting
+       if (req.query.sort){
+        const sortBy = req.query.sort.split(',').join(' ');
+        console.log(sortBy);
+        query = query.sort(sortBy);
+       } else{
+        query = query.sort('-createdAt');
        }
-    });
+
+        //EXECUTE QUERY
+        const tours = await query;
+
+        //const query = Tour.find()
+        // .where('duration')
+        // .equals(5)
+        // .where('difficulty')
+        // .equals('easy');
+
+         //SEND RESPONSE
+        res.status(200).json({
+           status: 'success', 
+           results: tours.length,  
+           data:{
+               tours
+           }
+        });
+    } catch(err){
+        res.status(404).json({
+            status:'fail',
+            message: err
+        })
+    };
 };
 
 
 
 //Request for POST - send data from the client to the server 
 /************************************* HTTP method: POST to create a new tour***********************************/
-exports.createTour = (req, res)  =>{
-    const newId = tours[tours.length -1].id + 1; 
-    const newTour = Object.assign({id: newId}, req.body); 
-    tours.push(newTour); 
-    
-    fs.writeFile(`${__dirname}/dev-data/data/tours-simple.json`, JSON.stringify(tours), err => {
-        res.status(201).json({ 
-            status:'success',
-            data:{
-                tour:newTour
-            }
-        });
+exports.createTour = async (req, res)  =>{
+try{
+    const newTour = await Tour.create(req.body);
+
+    res.status(201).json({ 
+        status:'success',
+        data:{
+            tour:newTour
+        }
     });
-}
+}catch (err){
+    res.status(400).json({
+        status: 'fail',
+        message: 'Invalid data sent'
+    })
+    }
+};
 
 
 /************************************* HTTP method: GET one Tour***********************************/
-exports.getTour = (req, res) =>{
-    console.log(req.params); //So, request dot params is a very nice object which automatically assigns the value to our variable, so our parameter that we defined.
-    const id = req.params.id*1; //Convert an string to a number
-    if(id>tours.length){
-        return res.status(404).json({
-        status: 'fail',
-        message: 'Invalid ID'
+exports.getTour = async (req, res) =>{
+    try{
+        const tour = await Tour.findById(req.params.id);
+
+        res.status(201).json({ 
+            status:'success',
+            data:{
+                tour
+            }
+    });
+    }catch (err){
+        res.status(400).json({
+            status: 'fail',
+            message: 'Invalid data sent'
         })
-    }
-    const tour = tours.find(el=>el.id === id) //we want to find the element where the ID is equal to the one that we get from the parameters.
-    
-        res.status(200).json({
-           status: 'success', 
-           results: tours.length,  
-           data:{
-               tour
-           }
-        });
-       };
+        }
+    };
    
 
 /************************************* HTTP method: PATH  -- update the data ***********************************/
-exports.updateTour =  (req, res) =>{
-    if(req.params.id * 1 > tours.length){
-        return res.status(404).json({
-            status:'fail',
-            message:'Invalid ID'
+exports.updateTour =  async (req, res) =>{
+    try{
+        const tour = await Tour.findByIdAndUpdate(req.params.id, req.body,{
+            new:true,
+            runValidators: true
+        })
+        res.status(200).json({
+            status:'success',
+            data:{
+                tour
+            }
         });
+    }catch(err){
+        res.status(400).json({
+            status: 'fail',
+            message: err
+        })
     }
-    res.status(200).json({
-        status:'success',
-        data:{
-            tour:'<Update tour here...>'
-        }
-    });
 };
 
 /**************************************** HTTP method: DELETE  ************************************************/
-exports.deleteTour =  (req, res) =>{
-    if(req.params.id * 1 > tours.length){
-        return res.status(404).json({
-            status:'fail',
-            message:'Invalid ID'
+exports.deleteTour = async (req, res) =>{
+    try{
+        const tour = await Tour.findByIdAndDelete(req.params.id, req.body);
+
+        res.status(200).json({
+            status:'success',
+            data:{
+                tour
+            }
         });
+    }catch(err){
+        res.status(400).json({
+            status: 'fail',
+            message: err
+        })
     }
-    res.status(204).json({
-        status:'success',
-        data: null
-    });
 };
